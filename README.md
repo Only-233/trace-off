@@ -106,6 +106,7 @@ trace-off/
 **Goooonly** — 注重隐私、专注效率工具的开发者
 
 - GitHub: [github.com/Only-233/trace-off](https://github.com/Only-233/trace-off)
+- Gitee: [gitee.com/GoKun/trace-off](https://gitee.com/GoKun/trace-off)
 
 ---
 
