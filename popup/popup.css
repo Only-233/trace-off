@@ -73,6 +73,10 @@ body {
 .toggle-sm .toggle-slider::before { height: 14px; width: 14px; left: 3px; bottom: 3px; }
 .toggle-sm input:checked + .toggle-slider::before { transform: translateX(16px); }
 
+.toggle-xs { width: 30px; height: 16px; flex-shrink: 0; margin-left: auto; }
+.toggle-xs .toggle-slider::before { height: 11px; width: 11px; left: 2px; bottom: 2px; }
+.toggle-xs input:checked + .toggle-slider::before { transform: translateX(14px); }
+
 /* ===== Main ===== */
 .popup-main {
   padding: 14px 18px 10px;

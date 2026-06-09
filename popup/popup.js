@@ -1,13 +1,14 @@
 /**
- * 止痕 Trace Off v1.0.1 - Popup
+ * 止痕 Trace Off v1.0.2 - Popup
  */
 const $ = id => document.getElementById(id);
 const DOM = {
   toggle: $('masterToggle'), input: $('domainEditInput'), reset: $('domainResetBtn'),
   host: $('sourceHost'), dot: $('statusDot'), text: $('statusText'),
   add: $('addBtn'), remove: $('removeBtn'), settings: $('openSettings'),
+  domainToggle: $('domainToggle'), domainToggleWrap: $('domainToggleWrap'),
 };
-let curDomain = '', curUrl = '', masterOn = true;
+let curDomain = '', curUrl = '', masterOn = true, curDomainInList = false;
 
 const getTab = async () => (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
 const cfg = async () => (await chrome.storage.local.get('domains')).domains || [];
@@ -17,15 +18,27 @@ const editVal = () => DOM.input.value.trim().toLowerCase();
 
 function updateUI(domains) {
   const v = editVal();
-  if (!v || !isValid(v)) { DOM.dot.className='status-dot'; DOM.text.textContent='输入有效域名后即可添加'; DOM.add.disabled=DOM.remove.disabled=true; return; }
+  if (!v || !isValid(v)) {
+    DOM.dot.className='status-dot';
+    DOM.text.textContent='输入有效域名后即可添加';
+    DOM.add.disabled=DOM.remove.disabled=true;
+    DOM.domainToggleWrap.style.display='none';
+    return;
+  }
   const i = domains.findIndex(d => d.domain === v);
   if (i !== -1) {
     DOM.add.disabled=true; DOM.remove.disabled=false;
     DOM.dot.className='status-dot ' + (domains[i].enabled ? 'active' : 'in-list');
     DOM.text.textContent = domains[i].enabled ? '已在屏蔽列表中' : '在列表中（已暂停屏蔽）';
+    // 同步当前域名开关
+    curDomainInList = true;
+    DOM.domainToggle.checked = domains[i].enabled;
+    DOM.domainToggleWrap.style.display = (v === curDomain) ? 'inline-flex' : 'none';
   } else {
     DOM.add.disabled=false; DOM.remove.disabled=true;
     DOM.dot.className='status-dot'; DOM.text.textContent='可添加至屏蔽列表';
+    curDomainInList = false;
+    DOM.domainToggleWrap.style.display='none';
   }
 }
 
@@ -64,6 +77,19 @@ DOM.toggle.onchange = async () => {
   setAll(!masterOn);
   DOM.dot.className='status-dot'; DOM.text.textContent = masterOn ? '' : '拦截已暂停';
   if (masterOn) refresh();
+};
+
+DOM.domainToggle.onchange = async () => {
+  const d = await cfg();
+  const i = d.findIndex(x => x.domain === curDomain);
+  if (i !== -1) {
+    d[i].enabled = DOM.domainToggle.checked;
+    await saveCfg(d);
+    const dot = DOM.domainToggle.checked ? 'active' : 'in-list';
+    const txt = DOM.domainToggle.checked ? '已在屏蔽列表中' : '在列表中（已暂停屏蔽）';
+    DOM.dot.className = 'status-dot ' + dot;
+    DOM.text.textContent = txt;
+  }
 };
 chrome.storage.onChanged.addListener((c, a) => {
   if (a==='local' && c.interceptionEnabled) {
