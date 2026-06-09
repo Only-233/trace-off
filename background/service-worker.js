@@ -1,66 +1,31 @@
 /**
- * 止痕 Trace Off - Service Worker
- * 监听浏览器历史记录，按域名规则拦截并删除
+ * 止痕 Trace Off v1.0.1 - Service Worker
  */
+let blocked = [], enabled = true;
 
-let blockedDomains = [];
-let interceptionEnabled = true;
-
-async function loadConfig() {
-  const result = await chrome.storage.local.get(['domains', 'interceptionEnabled']);
-  const domains = result.domains || [];
-  blockedDomains = domains.filter(d => d.enabled).map(d => d.domain);
-  interceptionEnabled = result.interceptionEnabled !== false;
+async function load() {
+  const r = await chrome.storage.local.get(['domains','interceptionEnabled']);
+  blocked = (r.domains||[]).filter(d=>d.enabled).map(d=>d.domain);
+  enabled = r.interceptionEnabled !== false;
 }
 
-/**
- * 从 URL 提取完整域名，含非标准端口
- */
-function getFullDomain(url) {
-  const u = new URL(url);
-  const isDefaultPort = (u.protocol === 'https:' && u.port === '443') ||
-                        (u.protocol === 'http:'  && u.port === '80')  ||
-                        u.port === '';
-  return isDefaultPort ? u.hostname : `${u.hostname}:${u.port}`;
-}
-
-function isUrlBlocked(url) {
+function match(url) {
   try {
-    const fullDomain = getFullDomain(url);
-    const hostname   = new URL(url).hostname;
-
-    for (const d of blockedDomains) {
-      const hasPort = d.includes(':');
-      if (hasPort) {
-        // 带端口：精确匹配完整域名
-        if (fullDomain === d) return true;
-      } else {
-        // 不带端口：匹配 hostname
-        if (hostname === d || hostname.endsWith('.' + d)) return true;
-      }
-    }
-    return false;
+    const h = new URL(url).hostname;
+    return blocked.some(d => h===d || h.endsWith('.'+d));
   } catch { return false; }
 }
 
-chrome.history.onVisited.addListener(async (historyItem) => {
-  if (!interceptionEnabled) return;
-  if (!isUrlBlocked(historyItem.url)) return;
-
-  try {
-    await chrome.history.deleteUrl({ url: historyItem.url });
-  } catch (err) {
-    console.error('[Trace Off] 删除失败:', err);
-  }
+chrome.history.onVisited.addListener(async item => {
+  if (!enabled || !match(item.url)) return;
+  try { await chrome.history.deleteUrl({ url: item.url }); } catch {}
 });
 
-chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName !== 'local') return;
-  if (changes.interceptionEnabled) {
-    interceptionEnabled = changes.interceptionEnabled.newValue !== false;
-  }
-  if (changes.domains) loadConfig();
+chrome.storage.onChanged.addListener((c, a) => {
+  if (a!=='local') return;
+  if (c.interceptionEnabled) enabled = c.interceptionEnabled.newValue!==false;
+  if (c.domains) load();
 });
 
-chrome.runtime.onInstalled.addListener(loadConfig);
-loadConfig();
+chrome.runtime.onInstalled.addListener(load);
+load();

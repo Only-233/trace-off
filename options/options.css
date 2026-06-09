@@ -65,9 +65,9 @@ body {
 }
 
 .brand-icon {
-  font-size: 24px;
   line-height: 1;
 }
+.brand-icon img { display: block; }
 
 .topbar-brand h2 {
   font-size: 17px;
@@ -90,6 +90,24 @@ body {
   margin: 0 auto;
   padding: 28px 20px 60px;
 }
+
+/* 顶部提示 */
+.top-tip {
+  background: #fffbeb; border: 1px solid #fde68a;
+  border-radius: var(--radius); padding: 14px 18px;
+  font-size: 13px; color: #92400e; line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+/* 更新日志按钮 */
+.changelog-btn { margin-top: 14px; }
+
+/* 更新日志列表 */
+.cl-ver { font-size: 15px; color: var(--text); margin: 16px 0 8px; }
+.cl-ver:first-child { margin-top: 0; }
+.cl-list { list-style: none; padding-left: 0; }
+.cl-list li { font-size: 13px; color: var(--text-secondary); padding: 3px 0; position: relative; padding-left: 14px; }
+.cl-list li::before { content: '·'; position: absolute; left: 2px; font-weight: 700; }
 
 /* ===== 分隔线 ===== */
 .section-divider {
@@ -428,30 +446,10 @@ body {
   background: #f3f4f6;
 }
 
-/* 编辑按钮 */
-.edit-btn {
-  color: var(--text-muted);
-}
-.edit-btn:hover {
-  background: var(--info-bg);
-  color: var(--info);
-}
-
 /* 编辑按钮确认状态 */
 .edit-btn.confirm {
   color: var(--success);
   background: var(--success-bg);
-}
-
-/* 删除按钮 */
-.delete-btn {
-  color: #ef4444;
-  opacity: 0.7;
-}
-.delete-btn:hover {
-  background: var(--danger-bg);
-  color: #ef4444;
-  opacity: 1;
 }
 
 /* ===== 开关样式 ===== */
@@ -575,6 +573,12 @@ body {
   font-weight: 700 !important;
   color: var(--text) !important;
 }
+.author-link {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12px; color: var(--text-secondary); text-decoration: none;
+  margin-top: 8px; transition: color var(--transition);
+}
+.author-link:hover { color: var(--text); }
 
 .link-list {
   display: flex;
@@ -660,9 +664,9 @@ body {
 }
 
 .about-logo {
-  font-size: 52px;
   margin-bottom: 14px;
 }
+.about-logo img { display: block; margin: 0 auto; }
 
 .about-card h3 {
   font-size: 20px;
@@ -723,7 +727,151 @@ body {
   font-size: 13px;
   color: #92400e;
   line-height: 1.6;
+  margin-bottom: 20px;
 }
+
+@keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+
+/* 域名行按钮颜色优化 */
+.edit-btn { color: var(--text-muted); }
+.edit-btn:hover { background: var(--info-bg); color: var(--info); }
+.history-btn { color: var(--warning); opacity: .7; }
+.history-btn:hover { background: var(--warning-bg); color: var(--warning); opacity: 1; }
+.delete-btn { color: var(--danger); opacity: .7; }
+.delete-btn:hover { background: var(--danger-bg); color: var(--danger); opacity: 1; }
+
+/* 域名行可点击 */
+.domain-cell { cursor: pointer; }
+.domain-cell:hover .domain-name { color: var(--info); }
+
+/* ===== 弹窗 ===== */
+.modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.35);
+  z-index: 200;
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+  animation: fadeIn .15s ease;
+}
+.modal-card {
+  background: var(--card-bg);
+  border-radius: 12px;
+  width: 100%; max-width: 640px;
+  max-height: 85vh;
+  display: flex; flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0,0,0,.15);
+}
+.modal-header {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-header h3 { font-size: 17px; color: var(--text); }
+.modal-domain { font-size: 12px; color: var(--text-muted); margin-top: 3px; font-family: "SF Mono","Consolas","Monaco",monospace; }
+.modal-close {
+  width: 30px; height: 30px; border: none; background: none;
+  font-size: 20px; color: var(--text-muted); cursor: pointer;
+  border-radius: 6px; display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition);
+}
+.modal-close:hover { background: #f3f4f6; color: var(--text); }
+
+/* 弹窗工具栏（全选 + 删除选中） */
+.modal-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 24px;
+  border-bottom: 1px solid #f3f4f6;
+  background: #fafbfc;
+}
+.modal-toolbar.hidden { display: none; }
+.history-select-all-label {
+  display: flex; align-items: center; gap: 7px;
+  font-size: 13px; color: var(--text-secondary);
+  cursor: pointer; user-select: none;
+}
+.history-select-all-label input[type="checkbox"] {
+  width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary);
+}
+.modal-toolbar-actions { display: flex; gap: 6px; }
+
+.modal-body {
+  flex: 1; overflow-y: auto; padding: 12px 24px;
+}
+.modal-empty { text-align: center; padding: 40px 0; color: var(--text-muted); font-size: 14px; }
+
+/* 历史记录分组 */
+.history-group { margin-bottom: 16px; }
+.history-group-title {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 600; color: var(--text-secondary);
+  padding: 6px 0 8px; border-bottom: 1px solid #f3f4f6; margin-bottom: 6px;
+}
+.history-group-check-label {
+  display: flex; align-items: center; flex-shrink: 0;
+}
+.history-group-check-label input[type="checkbox"] {
+  width: 15px; height: 15px; cursor: pointer; accent-color: var(--primary);
+}
+
+/* 单条记录 */
+.history-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 10px; border-radius: 8px; cursor: pointer;
+  transition: background .1s;
+}
+.history-item:hover { background: #f9fafb; }
+.history-item.selected { background: #f4f7ff; }
+
+.history-check-label {
+  flex-shrink: 0; display: flex; align-items: center;
+}
+.history-check-label input[type="checkbox"] {
+  width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary);
+}
+
+.history-favicon {
+  flex-shrink: 0; width: 16px; height: 16px; border-radius: 2px;
+}
+
+.history-item-info { flex: 1; min-width: 0; }
+.history-item-title {
+  font-size: 13px; font-weight: 500; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: flex; align-items: center; gap: 6px;
+}
+.history-item-url {
+  font-size: 11px; color: var(--text-muted);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-family: "SF Mono","Consolas","Monaco",monospace;
+  margin-top: 1px;
+}
+.history-item-time { font-size: 11px; color: var(--text-muted); margin-top: 1px; }
+.history-item-goto {
+  flex-shrink: 0; width: 26px; height: 26px; border: none; background: none;
+  color: var(--info); opacity: .65; cursor: pointer;
+  border-radius: 6px; display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition);
+}
+.history-item-goto:hover { background: var(--info-bg); color: var(--info); opacity: 1; }
+
+.history-item-del {
+  flex-shrink: 0; width: 26px; height: 26px; border: none; background: none;
+  color: var(--danger); opacity: .65; font-size: 16px; cursor: pointer;
+  border-radius: 6px; display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition);
+}
+.history-item-del:hover { background: var(--danger-bg); color: var(--danger); opacity: 1; }
+
+/* 弹窗底部 */
+.modal-footer {
+  display: flex; align-items: center; justify-content: flex-end; gap: 10px;
+  padding: 14px 24px; border-top: 1px solid var(--border);
+}
+.modal-confirm-footer {
+  flex-direction: column; align-items: stretch; gap: 10px;
+}
+.confirm-warn { font-size: 13px; color: var(--danger); text-align: center; }
+.confirm-btns { display: flex; gap: 10px; justify-content: flex-end; }
 
 /* ===== 响应式 ===== */
 @media (max-width: 640px) {

@@ -23,8 +23,9 @@ body {
 }
 
 .header-icon {
-  color: #1a1a2e;
+  line-height: 1;
 }
+.header-icon img { display: block; }
 
 .header-title h1 {
   font-size: 17px;

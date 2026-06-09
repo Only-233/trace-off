@@ -1,231 +1,96 @@
 /**
- * 止痕 Trace Off - Popup 弹窗逻辑
+ * 止痕 Trace Off v1.0.1 - Popup
  */
+const $ = id => document.getElementById(id);
+const DOM = {
+  toggle: $('masterToggle'), input: $('domainEditInput'), reset: $('domainResetBtn'),
+  host: $('sourceHost'), dot: $('statusDot'), text: $('statusText'),
+  add: $('addBtn'), remove: $('removeBtn'), settings: $('openSettings'),
+};
+let curDomain = '', curUrl = '', masterOn = true;
 
-let currentDomain = '';
-let currentUrl = '';
-let masterEnabled = true;
+const getTab = async () => (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
+const cfg = async () => (await chrome.storage.local.get('domains')).domains || [];
+const saveCfg = async d => { await chrome.storage.local.set({ domains: d }); };
+const isValid = d => /^(localhost(:\d{1,5})?|([\w-]+\.)+[a-z]{2,}(:\d{1,5})?)$/i.test(d.trim());
+const editVal = () => DOM.input.value.trim().toLowerCase();
 
-// DOM
-const masterToggle    = document.getElementById('masterToggle');
-const domainEditInput = document.getElementById('domainEditInput');
-const domainResetBtn  = document.getElementById('domainResetBtn');
-const sourceHostEl    = document.getElementById('sourceHost');
-const statusDot       = document.getElementById('statusDot');
-const statusText      = document.getElementById('statusText');
-const addBtn          = document.getElementById('addBtn');
-const removeBtn       = document.getElementById('removeBtn');
-const openSettings    = document.getElementById('openSettings');
-
-// ============ 工具函数 ============
-async function getCurrentTab() {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  return tab;
-}
-async function getDomainConfig() {
-  const result = await chrome.storage.local.get(['domains']);
-  return result.domains || [];
-}
-async function saveDomainConfig(domains) {
-  await chrome.storage.local.set({ domains });
-}
-function isValidDomain(domain) {
-  const d = domain.trim();
-  // 标准域名: example.com / sub.example.com:8080
-  if (/^([a-zA-Z0-9]([a-zA-Z0-9-]*[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}(:\d{1,5})?$/.test(d)) return true;
-  // localhost: localhost / localhost:3000
-  if (/^localhost(:\d{1,5})?$/.test(d)) return true;
-  return false;
-}
-function findDomainIndex(domains, domain) {
-  return domains.findIndex(d => d.domain === domain);
-}
-function getEditingDomain() {
-  return domainEditInput.value.trim().toLowerCase();
-}
-
-// ============ 状态 UI ============
-function updateStatus(domains) {
-  const domain = getEditingDomain();
-
-  if (!domain || !isValidDomain(domain)) {
-    statusDot.className = 'status-dot';
-    statusText.textContent = '输入有效域名后即可添加';
-    addBtn.disabled = true;
-    removeBtn.disabled = true;
-    return;
-  }
-
-  const index = findDomainIndex(domains, domain);
-  if (index !== -1) {
-    const item = domains[index];
-    addBtn.disabled = true;
-    removeBtn.disabled = false;
-    if (item.enabled) {
-      statusDot.className = 'status-dot active';
-      statusText.textContent = '已在屏蔽列表中';
-    } else {
-      statusDot.className = 'status-dot in-list';
-      statusText.textContent = '在列表中（已暂停屏蔽）';
-    }
+function updateUI(domains) {
+  const v = editVal();
+  if (!v || !isValid(v)) { DOM.dot.className='status-dot'; DOM.text.textContent='输入有效域名后即可添加'; DOM.add.disabled=DOM.remove.disabled=true; return; }
+  const i = domains.findIndex(d => d.domain === v);
+  if (i !== -1) {
+    DOM.add.disabled=true; DOM.remove.disabled=false;
+    DOM.dot.className='status-dot ' + (domains[i].enabled ? 'active' : 'in-list');
+    DOM.text.textContent = domains[i].enabled ? '已在屏蔽列表中' : '在列表中（已暂停屏蔽）';
   } else {
-    addBtn.disabled = false;
-    removeBtn.disabled = true;
-    statusDot.className = 'status-dot';
-    statusText.textContent = '可添加至屏蔽列表';
+    DOM.add.disabled=false; DOM.remove.disabled=true;
+    DOM.dot.className='status-dot'; DOM.text.textContent='可添加至屏蔽列表';
   }
 }
 
-function setDisabled(disabled) {
-  const opacity = disabled ? '0.35' : '';
-  domainEditInput.disabled = disabled;
-  domainResetBtn.disabled = disabled;
-  addBtn.disabled = disabled;
-  removeBtn.disabled = disabled;
-  [domainResetBtn, addBtn, removeBtn].forEach(b => {
-    if (disabled) { b.style.opacity = opacity; b.style.cursor = 'not-allowed'; }
-    else { b.style.opacity = ''; b.style.cursor = ''; }
+function setAll(v) {
+  const op = v ? '0.35' : '';
+  [DOM.input, DOM.reset, DOM.add, DOM.remove].forEach(el => {
+    el.disabled = v;
+    if (el !== DOM.input) { el.style.opacity = op; el.style.cursor = v ? 'not-allowed' : ''; }
   });
 }
 
-// ============ 操作 ============
-async function addDomain() {
-  const domain = getEditingDomain();
-  if (!domain || !isValidDomain(domain)) {
-    domainEditInput.style.borderColor = '#ef4444';
-    setTimeout(() => { domainEditInput.style.borderColor = ''; }, 800);
-    return;
-  }
+async function refresh() { updateUI(await cfg()); }
 
-  const domains = await getDomainConfig();
-  const index = findDomainIndex(domains, domain);
-  if (index === -1) {
-    domains.push({ domain, enabled: true });
-  } else {
-    domains[index].enabled = true;
-  }
+// 事件
+DOM.add.onclick = async () => {
+  const v = editVal(); if (!v || !isValid(v)) { DOM.input.style.borderColor='#ef4444'; setTimeout(()=>DOM.input.style.borderColor='',800); return; }
+  const d = await cfg(); const i = d.findIndex(x => x.domain === v);
+  if (i===-1) d.push({ domain: v, enabled: true }); else d[i].enabled = true;
+  await saveCfg(d); updateUI(d);
+  DOM.add.textContent='✓'; DOM.add.style.background='#16a34a';
+  setTimeout(() => { DOM.add.innerHTML='<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 2v11M2 7.5h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>添加'; DOM.add.style.background=''; }, 1000);
+};
+DOM.remove.onclick = async () => {
+  const v = editVal(); if (!v) return;
+  const d = await cfg(); const i = d.findIndex(x => x.domain === v);
+  if (i!==-1) { d.splice(i,1); await saveCfg(d); } updateUI(d);
+};
+DOM.reset.onclick = () => { DOM.input.value = curDomain; refresh(); };
+DOM.input.oninput = refresh;
+DOM.input.onkeydown = e => { if (e.key==='Enter') DOM.add.click(); };
+DOM.settings.onclick = e => { e.preventDefault(); chrome.runtime.openOptionsPage(); };
 
-  await saveDomainConfig(domains);
-  updateStatus(domains);
-
-  addBtn.textContent = '✓';
-  addBtn.style.background = '#16a34a';
-  setTimeout(() => {
-    addBtn.innerHTML = '<svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 2v11M2 7.5h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>添加';
-    addBtn.style.background = '';
-  }, 1000);
-}
-
-async function removeDomain() {
-  const domain = getEditingDomain();
-  if (!domain) return;
-
-  const domains = await getDomainConfig();
-  const index = findDomainIndex(domains, domain);
-  if (index !== -1) {
-    domains.splice(index, 1);
-    await saveDomainConfig(domains);
-  }
-  updateStatus(domains);
-}
-
-async function refreshStatus() {
-  const domains = await getDomainConfig();
-  updateStatus(domains);
-}
-
-// ============ 事件 ============
-addBtn.addEventListener('click', addDomain);
-removeBtn.addEventListener('click', removeDomain);
-domainResetBtn.addEventListener('click', () => {
-  domainEditInput.value = currentDomain;
-  refreshStatus();
-});
-domainEditInput.addEventListener('input', refreshStatus);
-domainEditInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') addDomain();
-});
-openSettings.addEventListener('click', (e) => {
-  e.preventDefault();
-  chrome.runtime.openOptionsPage();
-});
-
-// 总开关
-masterToggle.addEventListener('change', async () => {
-  masterEnabled = masterToggle.checked;
-  await chrome.storage.local.set({ interceptionEnabled: masterEnabled });
-  setDisabled(!masterEnabled);
-  if (!masterEnabled) {
-    statusDot.className = 'status-dot';
-    statusText.textContent = '拦截已暂停';
-  } else {
-    refreshStatus();
+DOM.toggle.onchange = async () => {
+  masterOn = DOM.toggle.checked;
+  await chrome.storage.local.set({ interceptionEnabled: masterOn });
+  setAll(!masterOn);
+  DOM.dot.className='status-dot'; DOM.text.textContent = masterOn ? '' : '拦截已暂停';
+  if (masterOn) refresh();
+};
+chrome.storage.onChanged.addListener((c, a) => {
+  if (a==='local' && c.interceptionEnabled) {
+    masterOn = c.interceptionEnabled.newValue !== false;
+    DOM.toggle.checked = masterOn; setAll(!masterOn);
+    DOM.dot.className='status-dot'; DOM.text.textContent = masterOn ? '' : '拦截已暂停';
+    if (masterOn) refresh();
   }
 });
 
-// 监听 storage 同步总开关
-chrome.storage.onChanged.addListener((changes, area) => {
-  if (area === 'local' && changes.interceptionEnabled) {
-    masterEnabled = changes.interceptionEnabled.newValue !== false;
-    masterToggle.checked = masterEnabled;
-    setDisabled(!masterEnabled);
-    if (masterEnabled) refreshStatus();
-    else {
-      statusText.textContent = '拦截已暂停';
-      statusDot.className = 'status-dot';
-    }
-  }
-});
-
-// ============ 初始化 ============
-(async function init() {
-  // 读取总开关状态
-  const result = await chrome.storage.local.get(['interceptionEnabled']);
-  masterEnabled = result.interceptionEnabled !== false;
-  masterToggle.checked = masterEnabled;
-
+// 初始化
+(async () => {
+  masterOn = ((await chrome.storage.local.get('interceptionEnabled')).interceptionEnabled) !== false;
+  DOM.toggle.checked = masterOn;
   try {
-    const tab = await getCurrentTab();
-    if (!tab || !tab.url) {
-      domainEditInput.placeholder = '无法获取当前页面';
-      sourceHostEl.textContent = '—';
-      return;
-    }
-
-    currentUrl = tab.url;
-
-    const internalSchemes = [
-      'chrome://', 'chrome-extension://', 'extension://',
-      'moz-extension://', 'edge://', 'brave://', 'opera://',
-      'about:', 'chrome-search://', 'devtools://', 'file://'
-    ];
-    const isInternal = internalSchemes.some(s => currentUrl.startsWith(s));
-
-    if (isInternal) {
-      // 内部页面：不自动填域名，但允许手动输入添加
-      currentDomain = '';
-      domainEditInput.value = '';
-      domainEditInput.placeholder = '输入要屏蔽的域名...';
-      sourceHostEl.textContent = '浏览器内部页面';
-      statusDot.className = 'status-dot';
-      statusText.textContent = '手动输入域名即可添加';
+    const tab = await getTab();
+    if (!tab?.url) { DOM.input.placeholder='无法获取当前页面'; DOM.host.textContent='—'; return; }
+    curUrl = tab.url;
+    const internal = ['chrome://','chrome-extension://','extension://','moz-extension://','edge://','brave://','opera://','about:','devtools://','file://'];
+    if (internal.some(s => curUrl.startsWith(s))) {
+      curDomain=''; DOM.input.value=''; DOM.input.placeholder='输入要屏蔽的域名...'; DOM.host.textContent='浏览器内部页面';
+      DOM.dot.className='status-dot'; DOM.text.textContent='手动输入域名即可添加';
     } else {
-      const urlObj = new URL(currentUrl);
-      const hasPort = urlObj.port && urlObj.port !== '80' && urlObj.port !== '443';
-      currentDomain = hasPort ? `${urlObj.hostname}:${urlObj.port}` : urlObj.hostname;
-      domainEditInput.value = currentDomain;
-      sourceHostEl.textContent = currentDomain;
+      const u = new URL(curUrl);
+      curDomain = (u.port && u.port!=='80' && u.port!=='443') ? `${u.hostname}:${u.port}` : u.hostname;
+      DOM.input.value=curDomain; DOM.host.textContent=curDomain;
     }
-
-    if (!masterEnabled) {
-      setDisabled(true);
-      statusText.textContent = '拦截已暂停';
-    } else {
-      const domains = await getDomainConfig();
-      updateStatus(domains);
-    }
-  } catch (err) {
-    domainEditInput.placeholder = '加载失败';
-    console.error('[Trace Off] init error:', err);
-  }
+    if (!masterOn) { setAll(true); DOM.text.textContent='拦截已暂停'; } else { updateUI(await cfg()); }
+  } catch { DOM.input.placeholder='加载失败'; }
 })();
