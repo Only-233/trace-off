@@ -572,11 +572,41 @@ body {
   font-size: 15px !important;
   font-weight: 700 !important;
   color: var(--text) !important;
+  margin: 0;
+  text-align: center;
+}
+.author-info {
+  text-align: center;
+  margin-bottom: 10px;
+}
+.author-avatar {
+  width: 128px;
+  height: 128px;
+  border-radius: 10px;
+  object-fit: cover;
+  border: 2px solid var(--border);
+  display: block;
+  margin: 0 auto;
+}
+.author-desc {
+  font-size: 12px !important;
+  color: var(--text-muted) !important;
+  margin-top: 4px;
+  line-height: 1.5;
+  text-align: center;
+}
+.author-links {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
 }
 .author-link {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: 12px; color: var(--text-secondary); text-decoration: none;
-  margin-top: 8px; transition: color var(--transition);
+  margin-top: 0; transition: color var(--transition);
+  padding: 4px 6px;
+  border-radius: 6px;
 }
 .author-link:hover { color: var(--text); }
 
@@ -603,9 +633,9 @@ body {
   color: var(--text);
   background: #e5e7eb;
 }
-.project-link svg {
+.project-link img {
   flex-shrink: 0;
-  opacity: 0.6;
+  opacity: 0.7;
 }
 
 /* 赞助卡片 */
