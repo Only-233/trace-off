@@ -47,7 +47,7 @@
 
 1. 克隆项目
    ```bash
-   git clone https://github.com/Goooonly/trace-off.git
+   git clone https://github.com/Only-233/trace-off.git
    ```
 
 2. 打开 Chrome 浏览器，进入 `chrome://extensions/`
@@ -105,8 +105,7 @@ trace-off/
 
 **Goooonly** — 注重隐私、专注效率工具的开发者
 
-- GitHub: [github.com/Goooonly/trace-off](https://github.com/Goooonly/trace-off)
-- Gitee: [gitee.com/Goooonly/trace-off](https://gitee.com/Goooonly/trace-off)
+- GitHub: [github.com/Only-233/trace-off](https://github.com/Only-233/trace-off)
 
 ---
 
