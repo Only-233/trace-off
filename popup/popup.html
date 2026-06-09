@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>止痕 Trace Off</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- 头部：品牌 + 总开关 -->
+    <header class="popup-header">
+      <div class="header-left">
+        <span class="header-icon">
+          <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+            <circle cx="11" cy="11" r="9.5" stroke="currentColor" stroke-width="2"/>
+            <line x1="5" y1="5" x2="17" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <div class="header-title">
+          <h1>止痕</h1>
+          <span class="header-sub">Trace Off</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <label class="toggle-switch toggle-sm" title="总开关">
+          <input type="checkbox" id="masterToggle" checked>
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </header>
+
+    <main class="popup-main">
+      <!-- 域名输入 -->
+      <div class="domain-section">
+        <div class="domain-input-row">
+          <input type="text" class="domain-input" id="domainEditInput" placeholder="输入域名..." spellcheck="false" autocomplete="off">
+          <button class="domain-reset-btn" id="domainResetBtn" title="恢复为当前页面域名">
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4v4h4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 12a6 6 0 00-9.5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <p class="domain-source">
+          当前页面 <span id="sourceHost">—</span>
+        </p>
+      </div>
+
+      <!-- 状态提示 -->
+      <div class="status-row" id="statusRow">
+        <span class="status-dot" id="statusDot"></span>
+        <span class="status-text" id="statusText">输入域名后即可操作</span>
+      </div>
+
+      <!-- 操作按钮 -->
+      <div class="btn-row">
+        <button class="btn btn-add" id="addBtn">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><path d="M7.5 2v11M2 7.5h11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+          添加
+        </button>
+        <button class="btn btn-remove" id="removeBtn">
+          <svg width="15" height="15" viewBox="0 0 15 15" fill="none"><circle cx="7.5" cy="7.5" r="5.5" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="7.5" x2="10" y2="7.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          移除
+        </button>
+      </div>
+    </main>
+
+    <footer class="popup-footer">
+      <a href="#" id="openSettings">管理设置</a>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

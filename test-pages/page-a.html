@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Trace Off - 测试页面 A</title>
+  <style>
+    body { font-family: sans-serif; padding: 40px; max-width: 600px; margin: 0 auto; }
+    h1 { color: #1a1a2e; }
+    .info { background: #f0f0f0; padding: 16px; border-radius: 8px; margin: 16px 0; }
+    .domain { font-family: monospace; font-weight: bold; color: #d32f2f; }
+  </style>
+</head>
+<body>
+  <h1>🧪 测试页面 A</h1>
+  <p>此页面用于测试止痕插件的历史记录拦截功能。</p>
+  <div class="info">
+    <p>当前域名：<span class="domain" id="host"></span></p>
+    <p>将此域名添加到止痕后，本页面的访问将不会出现在浏览器历史记录中。</p>
+  </div>
+  <script>
+    document.getElementById('host').textContent = location.hostname;
+  </script>
+</body>
+</html>
