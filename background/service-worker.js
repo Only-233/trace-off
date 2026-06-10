@@ -1,5 +1,5 @@
 /**
- * 止痕 Trace Off v1.0.2 - Service Worker
+ * 止痕 Trace Off v1.0.3 - Service Worker
  */
 let blocked = [], enabled = true;
 

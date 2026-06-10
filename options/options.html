@@ -30,10 +30,7 @@
       </div>
     </header>
 
-    <!-- 主内容区 -->
     <main class="content-wrap">
-
-      <!-- 顶部提示 -->
       <div class="top-tip">
         <strong>💡 提示：</strong>点击插件图标可快捷添加域名；点击下方域名行可打开清空历史记录弹窗。
       </div>
@@ -45,7 +42,6 @@
           <p class="panel-desc">管理不保存历史记录的域名列表。支持顶级域名（如 example.com）和多级子域名（如 sub.example.com）。</p>
         </header>
 
-        <!-- 添加 + 统计 -->
         <div class="toolbar">
           <div class="add-domain-form">
             <input type="text" id="domainInput" class="input" placeholder="输入域名，如 example.com" autocomplete="off">
@@ -62,7 +58,7 @@
           </div>
         </div>
 
-        <!-- 批量操作栏（常驻） -->
+        <!-- 批量操作栏 -->
         <div class="batch-bar" id="batchBar">
           <div class="batch-left">
             <label class="select-all-label">
@@ -71,15 +67,17 @@
             </label>
             <span class="batch-info" id="batchInfo">未选择任何项</span>
           </div>
+          <div class="search-wrap" id="domainSearchWrap">
+            <input type="text" class="search-input" id="domainSearch" placeholder="搜索域名..." autocomplete="off">
+            <button class="search-clear" id="domainSearchClear" style="display:none" title="清除">×</button>
+          </div>
           <div class="batch-actions">
             <button class="btn btn-sm btn-success" id="batchEnableBtn" disabled>全部启用</button>
             <button class="btn btn-sm btn-warning" id="batchDisableBtn" disabled>全部禁用</button>
             <button class="btn btn-sm btn-danger" id="batchDeleteBtn" disabled>删除选中</button>
-            <button class="btn btn-sm btn-outline" id="batchClearBtn" disabled>取消选择</button>
           </div>
         </div>
 
-        <!-- 域名列表 -->
         <div class="domain-list" id="domainList">
           <div class="empty-state" id="emptyState">
             <div class="empty-icon">
@@ -91,7 +89,6 @@
         </div>
       </section>
 
-      <!-- ========== 分隔线 ========== -->
       <hr class="section-divider">
 
       <!-- ========== 关于 ========== -->
@@ -101,7 +98,6 @@
         </header>
 
         <div class="about-layout">
-          <!-- 左侧：作者 + 赞助 -->
           <aside class="about-sidebar">
             <div class="about-side-card">
               <h4>👤 作者</h4>
@@ -136,12 +132,11 @@
             </div>
           </aside>
 
-          <!-- 右侧：关于内容 -->
           <div class="about-main">
             <div class="about-card">
               <div class="about-logo"><img src="../icons/icon-about.svg" width="64" height="64" alt="止痕"></div>
               <h3>止痕 Trace Off</h3>
-              <p class="version">版本 1.0.2</p>
+              <p class="version">版本 1.0.3</p>
               <p class="about-desc">一款轻量级浏览器扩展，让你可以按域名禁止浏览器保存历史记录。</p>
               <button class="btn btn-sm btn-outline changelog-btn" id="changelogBtn">
                 <img src="../icons/icon-info.svg" width="14" height="14" alt="日志">
@@ -171,6 +166,10 @@
       <div class="modal-header"><div><h3 class="modal-title-icon"><img src="../icons/icon-trash.svg" width="18" height="18" alt="清空">清空历史记录</h3><p class="modal-domain"></p></div><button class="modal-close">&times;</button></div>
       <div class="modal-toolbar">
         <label class="history-select-all-label"><input type="checkbox" id="historySelectAll"><span>全选</span></label>
+        <div class="search-wrap" id="historySearchWrap">
+          <input type="text" class="search-input" id="historySearch" placeholder="搜索标题或域名..." autocomplete="off">
+          <button class="search-clear" id="historySearchClear" style="display:none" title="清除">×</button>
+        </div>
         <div class="modal-toolbar-actions">
           <button class="btn btn-sm btn-outline" id="modalRefresh"><img src="../icons/icon-refresh.svg" width="14" height="14" alt="刷新">刷新</button>
           <button class="btn btn-sm btn-danger" id="modalDeleteSelected">删除选中 (0)</button>
@@ -186,6 +185,14 @@
     <div class="modal-card" style="max-width:500px">
       <div class="modal-header"><div><h3><img src="../icons/icon-info-lg.svg" width="18" height="18" alt="日志">更新日志</h3></div><button class="modal-close" id="clClose">&times;</button></div>
       <div class="modal-body" style="padding:20px 24px;max-height:60vh;overflow-y:auto">
+        <div class="cl-ver"><strong>v1.0.3</strong> <span style="color:var(--text-muted);font-size:12px">2026-06-10</span></div>
+        <ul class="cl-list">
+          <li>域名管理新增搜索框，按域名快速筛选；历史弹窗新增搜索，按域名/标题筛选</li>
+          <li>搜索框胶囊样式 + 快捷清除按钮；搜索时弹窗尺寸保持恒定无跳动</li>
+          <li>移除「取消选择」按钮；批量删除增加二次确认；弹窗刷新/搜索无闪烁</li>
+          <li>修复编辑按钮相关 bug（点击冒泡、交叉编辑失效、图标还原后功能错乱）</li>
+          <li>修复带端口域名搜索历史为空的问题</li>
+        </ul>
         <div class="cl-ver"><strong>v1.0.2</strong> <span style="color:var(--text-muted);font-size:12px">2026-06-09</span></div>
         <ul class="cl-list">
           <li>提取 SVG 图标至 icons 目录，代码更整洁</li>

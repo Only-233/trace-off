@@ -1,15 +1,15 @@
 /**
- * 止痕 Trace Off v1.0.1 - 设置页面
+ * 止痕 Trace Off v1.0.3 - 设置页面
  */
 const $ = id => document.getElementById(id);
 const S = {
   domainList: $('domainList'), emptyState: $('emptyState'), input: $('domainInput'),
   count: $('domainCount'), selectAll: $('selectAllCheckbox'),
   bInfo: $('batchInfo'), bEnable: $('batchEnableBtn'), bDisable: $('batchDisableBtn'),
-  bDelete: $('batchDeleteBtn'), bClear: $('batchClearBtn'),
+  bDelete: $('batchDeleteBtn'), domainSearch: $('domainSearch'),
 };
 
-let domains = [], selected = new Set(), editing = null;
+let domains = [], selected = new Set(), editing = null, domainFilter = '';
 
 // ========== 存储 ==========
 async function load() { domains = (await chrome.storage.local.get('domains')).domains || []; }
@@ -19,6 +19,7 @@ chrome.storage.onChanged.addListener((c, a) => { if (a === 'local' && c.domains)
 // ========== 辅助 ==========
 const esc = s => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
 const isValid = d => /^(localhost(:\d{1,5})?|([\w-]+\.)+[a-z]{2,}(:\d{1,5})?)$/i.test(d.trim());
+const filtered = () => domainFilter ? domains.filter(d => d.domain.toLowerCase().includes(domainFilter.toLowerCase())) : domains;
 function typeTag(d) {
   const [h, p] = d.split(':');
   if (h === 'localhost') return p ? `本地主机 · 端口 ${p}` : '本地主机';
@@ -40,13 +41,23 @@ const I = {
 
 // ========== 渲染 ==========
 function render() {
-  [...S.domainList.querySelectorAll('.domain-item')].forEach(r => r.remove());
+  [...S.domainList.querySelectorAll('.domain-item,.empty-state')].forEach(r => {
+    if (!r.id || r.id !== 'emptyState') r.remove();
+  });
+  const list = filtered();
   S.emptyState.style.display = domains.length ? 'none' : 'block';
-  domains.forEach((d, i) => {
+  if (!domains.length) { S.count.innerHTML = `${I.dot} 共 0 个域名`; updateBatchBar(); return; }
+  if (domainFilter && !list.length) {
+    S.domainList.innerHTML = '<div class="empty-state"><p class="empty-title">没有匹配的域名</p><p class="empty-desc">尝试其他关键词</p></div>';
+    S.count.innerHTML = `${I.dot} 共 ${domains.length} 个域名`;
+    updateBatchBar(); return;
+  }
+  list.forEach((d, i) => {
+    const gi = domains.findIndex(x => x.domain === d.domain);
     const sel = selected.has(d.domain);
     const row = document.createElement('div');
     row.className = 'domain-item' + (sel ? ' selected' : '');
-    row.dataset.domain = d.domain; row.dataset.index = i;
+    row.dataset.domain = d.domain; row.dataset.index = gi;
     row.innerHTML = `
       <div class="checkbox-cell"><input type="checkbox" class="domain-checkbox" ${sel?'checked':''}></div>
       <div class="domain-cell">
@@ -58,21 +69,35 @@ function render() {
         <button class="btn-icon-only history-btn" title="清空历史">${I.history}</button>
         <button class="btn-icon-only delete-btn" title="删除">${I.trash}</button>
       </div>
-      <div class="toggle-cell"><label class="toggle-switch"><input type="checkbox" class="domain-toggle" data-index="${i}" ${d.enabled?'checked':''}><span class="toggle-slider"></span></label></div>`;
+      <div class="toggle-cell"><label class="toggle-switch"><input type="checkbox" class="domain-toggle" data-index="${gi}" ${d.enabled?'checked':''}><span class="toggle-slider"></span></label></div>`;
     row.querySelector('.domain-checkbox').onchange = e => toggle(d.domain, e.target.checked);
-    row.querySelector('.domain-toggle').onchange = async e => { domains[i].enabled = e.target.checked; await save(); };
+    row.querySelector('.domain-toggle').onchange = async e => { domains[gi].enabled = e.target.checked; await save(); };
     row.querySelector('.domain-cell').onclick = () => openHistory(d.domain);
-    row.querySelector('.edit-btn').onclick = e => { e.stopPropagation(); startEdit(d.domain, row); };
+    row.querySelector('.edit-btn').onclick = e => { e.stopPropagation(); startEdit(d.domain, row, gi); };
+    row.querySelector('.domain-edit-input').onclick = e => e.stopPropagation();
     row.querySelector('.history-btn').onclick = e => { e.stopPropagation(); openHistory(d.domain); };
-    row.querySelector('.delete-btn').onclick = async e => { e.stopPropagation(); await del([d.domain]); };
+    row.querySelector('.delete-btn').onclick = async e => { e.stopPropagation(); del([d.domain]); };
     S.domainList.appendChild(row);
   });
   S.count.innerHTML = `${I.dot} 共 ${domains.length} 个域名`;
+  if (domainFilter) S.count.innerHTML += ` <span style="opacity:.5">(匹配 ${list.length})</span>`;
   updateBatchBar();
 }
 
-function startEdit(domain, row) {
-  if (editing) cancelEdit();
+function startEdit(domain, row, gi) {
+  if (editing) {
+    const old = S.domainList.querySelector(`.domain-item[data-domain="${editing}"]`);
+    if (old) {
+      const oldDomain = editing, oldRow = old, oldGi = domains.findIndex(x => x.domain === oldDomain);
+      const eb = old.querySelector('.edit-btn'), ns = old.querySelector('.domain-name'), ei = old.querySelector('.domain-edit-input');
+      if (eb) { eb.onclick = e => { e.stopPropagation(); startEdit(oldDomain, oldRow, oldGi); }; eb.innerHTML = I.edit; eb.classList.remove('confirm'); }
+      if (ns) ns.style.display = '';
+      if (ei) ei.style.display = 'none';
+      old.querySelector('.domain-checkbox').disabled = false;
+      old.querySelector('.domain-toggle').disabled = false;
+    }
+    editing = null;
+  }
   editing = domain;
   const ns = row.querySelector('.domain-name'), ei = row.querySelector('.domain-edit-input'), eb = row.querySelector('.edit-btn');
   row.querySelector('.domain-checkbox').disabled = row.querySelector('.domain-toggle').disabled = true;
@@ -82,21 +107,21 @@ function startEdit(domain, row) {
     const v = ei.value.trim().toLowerCase();
     if (!v || v === domain) { cancel(); return; }
     if (!isValid(v)) { ei.style.borderColor = '#ef4444'; setTimeout(() => ei.style.borderColor = '', 600); return; }
-    const oi = domains.findIndex(d => d.domain === domain);
-    if (oi===-1) return;
-    if (domains.findIndex(d => d.domain === v) !== oi && domains.some(d => d.domain === v)) { ei.style.borderColor = '#ef4444'; setTimeout(() => ei.style.borderColor = '', 600); return; }
-    domains[oi].domain = v;
+    if (domains.findIndex(d => d.domain === v) !== gi && domains.some(d => d.domain === v)) { ei.style.borderColor = '#ef4444'; setTimeout(() => ei.style.borderColor = '', 600); return; }
+    domains[gi].domain = v;
     if (selected.has(domain)) { selected.delete(domain); selected.add(v); }
     await save(); editing = null; render();
   }
-  function cancel() { editing = null; eb.innerHTML = I.edit; eb.classList.remove('confirm'); ns.style.display = ''; ei.style.display = 'none'; row.querySelector('.domain-checkbox').disabled = row.querySelector('.domain-toggle').disabled = false; }
+  function cancel() { editing = null; eb.onclick = e => { e.stopPropagation(); startEdit(domain, row, gi); }; eb.innerHTML = I.edit; eb.classList.remove('confirm'); ns.style.display = ''; ei.style.display = 'none'; row.querySelector('.domain-checkbox').disabled = row.querySelector('.domain-toggle').disabled = false; }
+  ei.onclick = e => e.stopPropagation();
   eb.onclick = commit; ei.onkeydown = e => { if(e.key==='Enter') commit(); if(e.key==='Escape') cancel(); };
   ei.onblur = () => setTimeout(() => { if(editing===domain) cancel(); }, 150);
 }
 function cancelEdit() { editing = null; render(); }
 
 function updateSelectAll() {
-  const all = new Set(domains.map(d => d.domain));
+  const list = filtered();
+  const all = new Set(list.map(d => d.domain));
   if (all.size===0) { S.selectAll.checked=S.selectAll.indeterminate=false; S.selectAll.disabled=true; return; }
   S.selectAll.disabled = false;
   S.selectAll.checked = selected.size===all.size;
@@ -105,9 +130,26 @@ function updateSelectAll() {
 function updateBatchBar() {
   const h = selected.size > 0;
   S.bInfo.textContent = h ? `已选择 ${selected.size} 项` : '未选择任何项';
-  S.bEnable.disabled = S.bDisable.disabled = S.bDelete.disabled = S.bClear.disabled = !h;
+  S.bEnable.disabled = S.bDisable.disabled = S.bDelete.disabled = !h;
   updateSelectAll();
 }
+
+// ========== 域名搜索 ==========
+function updateDomainSearchClear() {
+  $('domainSearchClear').style.display = S.domainSearch.value ? 'flex' : 'none';
+}
+S.domainSearch.oninput = () => {
+  domainFilter = S.domainSearch.value.trim().toLowerCase();
+  selected = new Set([...selected].filter(s => domains.some(d => d.domain === s)));
+  updateDomainSearchClear();
+  render();
+};
+$('domainSearchClear').onclick = () => {
+  S.domainSearch.value = '';
+  domainFilter = '';
+  updateDomainSearchClear();
+  render();
+};
 
 // ========== 域名操作 ==========
 function toggle(domain, on) { on ? selected.add(domain) : selected.delete(domain); render(); }
@@ -117,50 +159,160 @@ async function add() {
   if (domains.find(d => d.domain === v)) { S.input.value=''; S.input.placeholder='该域名已存在'; setTimeout(() => S.input.placeholder='输入域名，如 example.com', 1500); return; }
   domains.push({ domain: v, enabled: true }); await save(); S.input.value=''; S.input.focus(); render();
 }
-async function del(arr) { domains = domains.filter(d => !arr.includes(d.domain)); arr.forEach(d => selected.delete(d)); await save(); render(); }
-function clearSel() { selected.clear(); render(); }
-async function batchSet(v) { for (const d of selected) { const it = domains.find(x => x.domain === d); if (it) it.enabled = v; } await save(); render(); }
 function shake() { S.input.style.borderColor='#ef4444'; S.input.offsetHeight; S.input.style.animation='shake .35s ease'; setTimeout(()=>{S.input.style.borderColor='';S.input.style.animation=''},800); }
 
+// 删除（含二次确认）
+function showDeleteConfirm(msg, cb) {
+  const old = $('deleteConfirmModal'); if (old) old.remove();
+  const el = document.createElement('div'); el.id = 'deleteConfirmModal'; el.className = 'modal-overlay';
+  el.innerHTML = `<div class="modal-card" style="max-width:420px">
+    <div class="modal-header"><div><h3>⚠ 确认删除</h3></div><button class="modal-close">&times;</button></div>
+    <div class="modal-body" style="padding:20px 24px"><p style="font-size:14px;color:var(--text-secondary)">${msg}</p></div>
+    <div class="modal-footer"><button class="btn btn-outline" id="delCancel">取消</button><button class="btn btn-danger" id="delConfirm">确认删除</button></div>
+  </div>`;
+  document.body.appendChild(el);
+  el.onclick = e => { if(e.target===el) el.remove(); };
+  el.querySelector('.modal-close').onclick = () => el.remove();
+  el.querySelector('#delCancel').onclick = () => el.remove();
+  el.querySelector('#delConfirm').onclick = () => { cb(); el.remove(); };
+}
+
+async function del(arr) {
+  if (arr.length > 1) {
+    showDeleteConfirm(`确定要删除选中的 ${arr.length} 个域名吗？此操作不可撤销。`, async () => {
+      domains = domains.filter(d => !arr.includes(d.domain));
+      arr.forEach(d => selected.delete(d));
+      await save(); render();
+    });
+  } else {
+    domains = domains.filter(d => !arr.includes(d.domain));
+    arr.forEach(d => selected.delete(d));
+    await save(); render();
+  }
+}
+function clearSel() { selected.clear(); render(); }
+async function batchSet(v) { for (const d of selected) { const it = domains.find(x => x.domain === d); if (it) it.enabled = v; } await save(); render(); }
+
 // ========== 清空历史弹窗 ==========
-let hDomain = '', hResults = [], hSelected = new Set();
+let hDomain = '', hResults = [], hSelected = new Set(), historyFilter = '';
 
 async function openHistory(domain) {
-  hDomain = domain; hSelected = new Set();
+  hDomain = domain; hSelected = new Set(); historyFilter = '';
+  // 重置搜索框状态
+  const hs = $('historySearch');
+  if (hs) { hs.value = ''; const hsc = $('historySearchClear'); if (hsc) hsc.style.display = 'none'; }
+  const [host, port] = domain.includes(':') ? domain.split(':') : [domain, null];
   const raw = await chrome.history.search({ text: domain, maxResults: 500, startTime: 0 });
-  hResults = raw.filter(r => { try{ const h = new URL(r.url).hostname; return h===domain || h.endsWith('.'+domain); } catch{return false;} });
+  hResults = raw.filter(r => {
+    try {
+      const u = new URL(r.url);
+      if (u.hostname !== host && !u.hostname.endsWith('.' + host)) return false;
+      if (port && u.port !== port) return false;
+      return true;
+    } catch { return false; }
+  });
   hResults.sort((a,b) => (b.lastVisitTime||0)-(a.lastVisitTime||0));
   renderHistory();
 }
 
 function renderHistory() {
-  const old = $('historyModal'); if (old) old.remove();
+  let el = $('historyModal');
 
-  const tpl = $('tplHistoryModal').content.cloneNode(true);
-  const el = document.createElement('div'); el.id = 'historyModal'; el.className = 'modal-overlay';
-  el.appendChild(tpl);
+  // 首次：创建弹窗
+  if (!el) {
+    const tpl = $('tplHistoryModal').content.cloneNode(true);
+    el = document.createElement('div'); el.id = 'historyModal'; el.className = 'modal-overlay';
+    el.appendChild(tpl);
+    document.body.appendChild(el);
 
-  // header
-  el.querySelector('.modal-domain').textContent = `${esc(hDomain)} · 共 ${hResults.length} 条`;
-  // toolbar
-  const tb = el.querySelector('.modal-toolbar');
-  if (hResults.length === 0) tb.classList.add('hidden');
-  el.querySelector('#historySelectAll').checked = hResults.length > 0 && hSelected.size === hResults.length;
-  el.querySelector('#historySelectAll').indeterminate = hSelected.size > 0 && hSelected.size < hResults.length;
-  el.querySelector('.history-select-all-label span').textContent = hSelected.size > 0 ? `已选 ${hSelected.size} 条` : '全选';
-  const ds = el.querySelector('#modalDeleteSelected');
-  ds.disabled = hSelected.size === 0; ds.textContent = `删除选中 (${hSelected.size})`;
-  // footer
-  const da = el.querySelector('#modalDeleteAll');
-  da.textContent = `清空全部 ${hResults.length} 条`; da.disabled = hResults.length === 0;
+    el.onclick = e => { if(e.target===el) closeHistory(); };
+    el.querySelector('.modal-close').onclick = closeHistory;
+    el.querySelector('#modalCancel').onclick = closeHistory;
 
-  // body
+    // 搜索
+    const hs = el.querySelector('#historySearch');
+    const hsc = el.querySelector('#historySearchClear');
+    hs.oninput = function() {
+      historyFilter = this.value.trim();
+      hsc.style.display = historyFilter ? 'flex' : 'none';
+      hSelected = new Set([...hSelected].filter(u => hResults.some(r => r.url === u)));
+      renderHistoryBody(el);
+    };
+    hsc.onclick = () => {
+      hs.value = '';
+      historyFilter = '';
+      hsc.style.display = 'none';
+      renderHistoryBody(el);
+    };
+
+    // 刷新
+    el.querySelector('#modalRefresh').onclick = async () => {
+      const [host, port] = hDomain.includes(':') ? hDomain.split(':') : [hDomain, null];
+      const raw = await chrome.history.search({ text: hDomain, maxResults: 500, startTime: 0 });
+      hResults = raw.filter(r => { try{ const u=new URL(r.url); if(u.hostname!==host&&!u.hostname.endsWith('.'+host))return false; if(port&&u.port!==port)return false; return true; }catch{return false;} });
+      hResults.sort((a,b)=>(b.lastVisitTime||0)-(a.lastVisitTime||0));
+      hSelected = new Set([...hSelected].filter(u => hResults.some(r=>r.url===u)));
+      renderHistoryBody(el);
+    };
+
+    // 全选
+    el.querySelector('#historySelectAll').onchange = function() {
+      const items = el.querySelectorAll('.history-item');
+      if(this.checked) [...items].forEach(r => { const u=r.dataset.url; if(hResults.some(x=>x.url===u)) hSelected.add(u); });
+      else [...items].forEach(r => hSelected.delete(r.dataset.url));
+      renderHistoryToolbar(el);
+      renderHistorySelections(el);
+    };
+
+    // 删除选中
+    el.querySelector('#modalDeleteSelected').onclick = () => {
+      if(!hSelected.size)return;
+      showCm(el, `⚠ 确定要删除选中的 ${hSelected.size} 条记录吗？此操作不可撤销。`);
+      el.querySelector('#modalConfirmYes').onclick = async ()=>{
+        const urls=[...hSelected]; for(const u of urls) await chrome.history.deleteUrl({url:u});
+        removeUrls(el, urls); hideCm(el);
+      };
+    };
+
+    // 清空全部
+    el.querySelector('#modalDeleteAll').onclick = () => {
+      if(!hResults.length)return;
+      showCm(el, `⚠ 确定要删除全部 ${hResults.length} 条记录吗？此操作不可撤销。`);
+      el.querySelector('#modalConfirmYes').onclick = async ()=>{
+        const urls=hResults.map(r=>r.url); for(const u of urls) await chrome.history.deleteUrl({url:u});
+        removeUrls(el, urls); hideCm(el);
+      };
+    };
+
+    el.querySelector('#modalConfirmNo').onclick = () => hideCm(el);
+  }
+
+  // 更新 content
+  renderHistoryBody(el);
+  renderHistoryToolbar(el);
+}
+
+// 仅更新 body
+function renderHistoryBody(el) {
+  const filtered = historyFilter
+    ? hResults.filter(r => {
+        const kw = historyFilter.toLowerCase();
+        try { if (new URL(r.url).hostname.toLowerCase().includes(kw)) return true; } catch {}
+        return (r.title || '').toLowerCase().includes(kw);
+      })
+    : hResults;
+
   const body = el.querySelector('.modal-body');
-  const grps = {}; hResults.forEach(r => { const k = I.group(r.lastVisitTime||0); (grps[k] ||= []).push(r); });
+  const grps = {}; filtered.forEach(r => { const k = I.group(r.lastVisitTime||0); (grps[k] ||= []).push(r); });
   const gks = Object.keys(grps);
 
-  body.innerHTML = gks.length === 0
-    ? '<div class="modal-empty"><svg width="36" height="36" viewBox="0 0 36 36" fill="none" style="margin-bottom:8px;opacity:.3"><rect x="6" y="8" width="24" height="22" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M6 14h24" stroke="currentColor" stroke-width="1.8"/><line x1="12" y1="20" x2="24" y2="20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>未找到该域名的历史记录</div>'
+  const tb = el.querySelector('.modal-toolbar');
+  if (hResults.length === 0) tb.classList.add('hidden'); else tb.classList.remove('hidden');
+
+  body.innerHTML = filtered.length === 0
+    ? (hResults.length === 0
+      ? '<div class="modal-empty"><svg width="36" height="36" viewBox="0 0 36 36" fill="none" style="margin-bottom:8px;opacity:.3"><rect x="6" y="8" width="24" height="22" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M6 14h24" stroke="currentColor" stroke-width="1.8"/><line x1="12" y1="20" x2="24" y2="20" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>未找到该域名的历史记录</div>'
+      : '<div class="modal-empty">未找到匹配的记录</div>')
     : gks.map(k => {
         const urls = grps[k].map(r => r.url), all = urls.every(u => hSelected.has(u)), some = urls.some(u => hSelected.has(u));
         return `<div class="history-group" data-group="${k}">
@@ -175,52 +327,72 @@ function renderHistory() {
         </div>`;
       }).join('');
 
-  document.body.appendChild(el);
-  el.onclick = e => { if(e.target===el) closeHistory(); };
-  el.querySelector('.modal-close').onclick = closeHistory;
-  el.querySelector('#modalCancel').onclick = closeHistory;
-
-  function refresh() {
-    const m = $('historyModal'); if(!m) return;
-    m.querySelectorAll('.history-item').forEach(row => { const u=row.dataset.url; const cb=row.querySelector('.history-checkbox'); if(cb)cb.checked=hSelected.has(u); row.classList.toggle('selected',hSelected.has(u)); });
-    m.querySelectorAll('.history-group').forEach(g => { const gc=g.querySelector('.history-group-check'); if(!gc)return; const urls=[...g.querySelectorAll('.history-item')].map(r=>r.dataset.url); gc.checked=urls.length>0&&urls.every(u=>hSelected.has(u)); gc.indeterminate=urls.some(u=>hSelected.has(u))&&!gc.checked; });
-    const sa=m.querySelector('#historySelectAll'); if(sa){sa.checked=hResults.length>0&&hSelected.size===hResults.length;sa.indeterminate=hSelected.size>0&&hSelected.size<hResults.length;sa.closest('.history-select-all-label').querySelector('span').textContent=hSelected.size>0?`已选 ${hSelected.size} 条`:'全选';}
-    const ds=m.querySelector('#modalDeleteSelected'); if(ds){ds.disabled=hSelected.size===0;ds.textContent=`删除选中 (${hSelected.size})`;}
-    const da=m.querySelector('#modalDeleteAll'); if(da){da.textContent=`清空全部 ${hResults.length} 条`;da.disabled=hResults.length===0;}
-    const de=m.querySelector('.modal-domain'); if(de)de.textContent=`${esc(hDomain)} · 共 ${hResults.length} 条`;
-    if(hResults.length===0){const b=m.querySelector('.modal-body');if(!b.querySelector('.modal-empty')){b.innerHTML='<div class="modal-empty"><svg width="36" height="36" viewBox="0 0 36 36" fill="none" style="margin-bottom:8px;opacity:.3"><path d="M27 9L9 27M9 9l18 18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>已清空</div>';m.querySelector('.modal-toolbar').classList.add('hidden');}}
-  }
-
-  function remove(urls) {
-    const m = $('historyModal'); if(!m) return;
-    const s = new Set(urls);
-    m.querySelectorAll('.history-item').forEach(row => { if(s.has(row.dataset.url)) row.remove(); });
-    m.querySelectorAll('.history-group').forEach(g => { if(!g.querySelector('.history-item')) g.remove(); });
-    hResults = hResults.filter(r => !s.has(r.url)); s.forEach(u => hSelected.delete(u));
-    refresh();
-  }
-  function showCm(msg) { el.querySelector('#confirmWarn').textContent=msg; el.querySelector('#modalFooter').style.display='none'; el.querySelector('#modalConfirmFooter').style.display=''; }
-  function hideCm() { el.querySelector('#modalFooter').style.display=''; el.querySelector('#modalConfirmFooter').style.display='none'; }
-
-  // 刷新：原地更新数据+重渲染内容
-  el.querySelector('#modalRefresh').onclick = async () => {
-    const raw = await chrome.history.search({ text: hDomain, maxResults: 500, startTime: 0 });
-    hResults = raw.filter(r => { try{ const h=new URL(r.url).hostname; return h===hDomain||h.endsWith('.'+hDomain); }catch{return false;} });
-    hResults.sort((a,b)=>(b.lastVisitTime||0)-(a.lastVisitTime||0));
-    hSelected = new Set([...hSelected].filter(u => hResults.some(r=>r.url===u)));
-    renderHistory();
-  };
-  el.querySelector('#historySelectAll').onchange = function() { if(this.checked)hResults.forEach(r=>hSelected.add(r.url));else hSelected.clear();refresh(); };
-  el.querySelectorAll('.history-group-check').forEach(gc => gc.onchange = function() { const g=this.closest('.history-group'); const urls=[...g.querySelectorAll('.history-item')].map(r=>r.dataset.url); if(this.checked)urls.forEach(u=>hSelected.add(u));else urls.forEach(u=>hSelected.delete(u));refresh(); });
-  el.querySelectorAll('.history-checkbox').forEach(cb => cb.onchange = function(e){e.stopPropagation();const u=this.closest('.history-item').dataset.url;this.checked?hSelected.add(u):hSelected.delete(u);refresh();});
-  el.querySelectorAll('.history-item').forEach(row => row.onclick = function(e){if(e.target.closest('.history-item-del,.history-item-goto,.history-checkbox'))return;const u=row.dataset.url;hSelected.has(u)?hSelected.delete(u):hSelected.add(u);refresh();});
+  // 绑定事件
+  el.querySelectorAll('.history-group-check').forEach(gc => gc.onchange = function() { const g=this.closest('.history-group'); const urls=[...g.querySelectorAll('.history-item')].map(r=>r.dataset.url); if(this.checked)urls.forEach(u=>hSelected.add(u));else urls.forEach(u=>hSelected.delete(u));renderHistoryToolbar(el);renderHistorySelections(el); });
+  el.querySelectorAll('.history-checkbox').forEach(cb => cb.onchange = function(e){e.stopPropagation();const u=this.closest('.history-item').dataset.url;this.checked?hSelected.add(u):hSelected.delete(u);renderHistoryToolbar(el);renderHistorySelections(el);});
+  el.querySelectorAll('.history-item').forEach(row => row.onclick = function(e){if(e.target.closest('.history-item-del,.history-item-goto,.history-checkbox'))return;const u=row.dataset.url;hSelected.has(u)?hSelected.delete(u):hSelected.add(u);renderHistoryToolbar(el);renderHistorySelections(el);});
   el.querySelectorAll('.history-item-goto').forEach(b => b.onclick = e => { e.stopPropagation(); chrome.tabs.create({ url: e.target.closest('.history-item').dataset.url }); });
-  el.querySelectorAll('.history-item-del').forEach(b => b.onclick = async e => { e.stopPropagation(); const u=e.target.closest('.history-item').dataset.url; await chrome.history.deleteUrl({url:u}); remove([u]); });
-  el.querySelector('#modalDeleteSelected').onclick = () => { if(!hSelected.size)return; showCm(`⚠ 确定要删除选中的 ${hSelected.size} 条记录吗？此操作不可撤销。`); el.querySelector('#modalConfirmYes').onclick = async ()=>{const urls=[...hSelected];for(const u of urls)await chrome.history.deleteUrl({url:u});remove(urls);hideCm();}; };
-  el.querySelector('#modalDeleteAll').onclick = () => { if(!hResults.length)return; showCm(`⚠ 确定要删除全部 ${hResults.length} 条记录吗？此操作不可撤销。`); el.querySelector('#modalConfirmYes').onclick = async ()=>{const urls=hResults.map(r=>r.url);for(const u of urls)await chrome.history.deleteUrl({url:u});remove(urls);hideCm();}; };
-  el.querySelector('#modalConfirmNo').onclick = hideCm;
+  el.querySelectorAll('.history-item-del').forEach(b => b.onclick = async e => { e.stopPropagation(); const u=e.target.closest('.history-item').dataset.url; await chrome.history.deleteUrl({url:u}); removeUrls(el, [u]); });
+
+  // header
+  const de = el.querySelector('.modal-domain');
+  let text = `${esc(hDomain)} · 共 ${hResults.length} 条`;
+  if (historyFilter) text += ` · 匹配 ${filtered.length}`;
+  de.textContent = text;
+
+  // footer
+  const da = el.querySelector('#modalDeleteAll');
+  da.textContent = `清空全部 ${hResults.length} 条`; da.disabled = hResults.length === 0;
 }
-function closeHistory() { const m = $('historyModal'); if(m) m.remove(); hDomain=''; hResults=[]; hSelected=new Set(); }
+
+// 仅更新选择状态（不重建 DOM）
+function renderHistorySelections(el) {
+  el.querySelectorAll('.history-item').forEach(row => {
+    const u = row.dataset.url;
+    const cb = row.querySelector('.history-checkbox');
+    if (cb) cb.checked = hSelected.has(u);
+    row.classList.toggle('selected', hSelected.has(u));
+  });
+  el.querySelectorAll('.history-group').forEach(g => {
+    const gc = g.querySelector('.history-group-check');
+    if (!gc) return;
+    const urls = [...g.querySelectorAll('.history-item')].map(r => r.dataset.url);
+    gc.checked = urls.length > 0 && urls.every(u => hSelected.has(u));
+    gc.indeterminate = urls.some(u => hSelected.has(u)) && !gc.checked;
+  });
+}
+
+// 仅更新工具栏
+function renderHistoryToolbar(el) {
+  const sa = el.querySelector('#historySelectAll');
+  if (sa) {
+    const items = el.querySelectorAll('.history-item');
+    sa.checked = items.length > 0 && [...items].every(r => hSelected.has(r.dataset.url));
+    sa.indeterminate = [...items].some(r => hSelected.has(r.dataset.url)) && !sa.checked;
+    sa.closest('.history-select-all-label').querySelector('span').textContent = hSelected.size > 0 ? `已选 ${hSelected.size} 条` : '全选';
+  }
+  const ds = el.querySelector('#modalDeleteSelected');
+  if (ds) { ds.disabled = hSelected.size === 0; ds.textContent = `删除选中 (${hSelected.size})`; }
+  const da = el.querySelector('#modalDeleteAll');
+  if (da) { da.textContent = `清空全部 ${hResults.length} 条`; da.disabled = hResults.length === 0; }
+}
+
+function removeUrls(el, urls) {
+  const s = new Set(urls);
+  el.querySelectorAll('.history-item').forEach(row => { if(s.has(row.dataset.url)) row.remove(); });
+  el.querySelectorAll('.history-group').forEach(g => { if(!g.querySelector('.history-item')) g.remove(); });
+  hResults = hResults.filter(r => !s.has(r.url));
+  s.forEach(u => hSelected.delete(u));
+  const tb = el.querySelector('.modal-toolbar');
+  if (hResults.length === 0) { tb.classList.add('hidden'); el.querySelector('.modal-domain').textContent = `${esc(hDomain)} · 共 0 条`; }
+  const filtered = el.querySelectorAll('.history-item');
+  if (filtered.length === 0 && historyFilter) { renderHistoryBody(el); }
+  renderHistoryToolbar(el);
+}
+
+function showCm(el, msg) { el.querySelector('#confirmWarn').textContent=msg; el.querySelector('#modalFooter').style.display='none'; el.querySelector('#modalConfirmFooter').style.display=''; }
+function hideCm(el) { el.querySelector('#modalFooter').style.display=''; el.querySelector('#modalConfirmFooter').style.display='none'; }
+function closeHistory() { const m = $('historyModal'); if(m) m.remove(); hDomain=''; hResults=[]; hSelected=new Set(); historyFilter=''; }
 
 // ========== 更新日志弹窗 ==========
 function openChangelog() {
@@ -233,13 +405,12 @@ function openChangelog() {
 }
 
 // ========== 事件 ==========
-S.selectAll.onchange = () => { if(S.selectAll.checked)domains.forEach(d=>selected.add(d.domain));else selected.clear();render(); };
+S.selectAll.onchange = () => { if(S.selectAll.checked)filtered().forEach(d=>selected.add(d.domain));else selected.clear();render(); };
 $('addDomainBtn').onclick = add;
 S.input.onkeydown = e => { if(e.key==='Enter') add(); };
 S.bEnable.onclick = () => batchSet(true);
 S.bDisable.onclick = () => batchSet(false);
 S.bDelete.onclick = () => del([...selected]);
-S.bClear.onclick = clearSel;
 $('changelogBtn').onclick = openChangelog;
 
 // ========== 初始化 ==========

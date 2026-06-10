@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "止痕 Trace Off",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "按域名禁止浏览器保存历史记录",
   "icons": {
     "16": "icons/icon16.png",
