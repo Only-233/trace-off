@@ -496,10 +496,6 @@ body {
   flex-shrink: 0;
 }
 
-.delete-cell {
-  flex-shrink: 0;
-}
-
 /* 图标按钮 */
 .btn-icon-only {
   width: 32px;
@@ -636,12 +632,6 @@ body {
   line-height: 1.7;
 }
 
-.side-card-meta {
-  font-size: 11px !important;
-  color: var(--text-muted) !important;
-  margin-top: 6px;
-}
-
 .author-name {
   font-size: 15px !important;
   font-weight: 700 !important;
@@ -728,10 +718,6 @@ body {
   text-align: center;
 }
 
-.about-content {
-  max-width: none;
-}
-
 .about-card {
   background: var(--card-bg);
   border-radius: var(--radius);
@@ -797,18 +783,10 @@ body {
   font-size: 13px;
 }
 
-.about-tip {
-  background: #fffbeb;
-  border: 1px solid #fde68a;
-  border-radius: var(--radius);
-  padding: 14px 18px;
-  font-size: 13px;
-  color: #92400e;
-  line-height: 1.6;
-  margin-bottom: 20px;
-}
+
 
 @keyframes fadeIn { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:translateY(0); } }
+@keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-4px)} 75%{transform:translateX(4px)} }
 
 /* 域名行按钮颜色优化 */
 .edit-btn { color: var(--text-muted); }
@@ -1039,11 +1017,6 @@ body {
 
   .brand-icon {
     font-size: 20px;
-  }
-
-  .nav-item {
-    padding: 5px 12px;
-    font-size: 12px;
   }
 
   .content-wrap {

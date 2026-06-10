@@ -36,8 +36,19 @@ const I = {
   history: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2h12M5 2V1h6v1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="5" width="10" height="9" rx="1" stroke="currentColor" stroke-width="1.4"/><line x1="6" y1="8" x2="10" y2="8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><line x1="6" y1="11" x2="9" y2="11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
   mask: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 5l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4M8 8h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
   favicon: u => `chrome://favicon/size/16@2x/${u}`,
-  time: ts => { const d = new Date(ts), pad = n => String(n).padStart(2,'0'); const t = new Date(); t.setHours(0,0,0,0); const y = new Date(t); y.setDate(y.getDate()-1); const dp = d<y?`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`:d<t?'昨天':'今天'; return `${dp} ${pad(d.getHours())}:${pad(d.getMinutes())}`; },
-  group: ts => { const d = new Date(ts); const t = new Date(); t.setHours(0,0,0,0); const y = new Date(t); y.setDate(y.getDate()-1); if(d>=t) return '今天'; if(d>=y) return '昨天'; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; },
+  dateLabel: ts => {
+    const d = new Date(ts), now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const yesterday = new Date(today); yesterday.setDate(yesterday.getDate() - 1);
+    if (d >= today) return '今天';
+    if (d >= yesterday) return '昨天';
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+  },
+  time: ts => {
+    const d = new Date(ts), pad = n => String(n).padStart(2, '0');
+    return `${I.dateLabel(ts)} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  },
+  group: ts => I.dateLabel(ts),
 };
 
 // ========== 渲染 ==========
@@ -53,7 +64,7 @@ function render() {
     S.count.innerHTML = `${I.dot} 共 ${domains.length} 个域名`;
     updateBatchBar(); return;
   }
-  list.forEach((d, i) => {
+  list.forEach(d => {
     const gi = domains.findIndex(x => x.domain === d.domain);
     const sel = selected.has(d.domain);
     const row = document.createElement('div');
@@ -120,8 +131,6 @@ function startEdit(domain, row, gi) {
   eb.onclick = commit; ei.onkeydown = e => { if(e.key==='Enter') commit(); if(e.key==='Escape') cancel(); };
   ei.onblur = () => setTimeout(() => { if(editing===domain) cancel(); }, 150);
 }
-function cancelEdit() { editing = null; render(); }
-
 function updateSelectAll() {
   const list = filtered();
   const all = new Set(list.map(d => d.domain));
@@ -193,7 +202,6 @@ async function del(arr) {
     await save(); render();
   }
 }
-function clearSel() { selected.clear(); render(); }
 async function batchSet(v) { for (const d of selected) { const it = domains.find(x => x.domain === d); if (it) it.enabled = v; } await save(); render(); }
 
 // ========== 伪装弹窗 ==========
@@ -485,4 +493,3 @@ $('refreshBtn').onclick = async () => { await load(); render(); };
 
 // ========== 初始化 ==========
 (async () => { await load(); render(); })();
-document.head.appendChild(Object.assign(document.createElement('style'),{textContent:'@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-4px)}75%{transform:translateX(4px)}}'}));

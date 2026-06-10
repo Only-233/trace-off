@@ -2,7 +2,8 @@
  * 止痕 Trace Off v1.0.4 - Service Worker
  */
 let blocked = [], enabled = true, masks = {};
-const tabOriginals = {}; // { tabId: { title, url } }
+const tabOriginals = {}; // { tabId: { title, favicons[] } }
+const titleCache = {};   // { domain: 'fetched title' }
 
 async function load() {
   const r = await chrome.storage.local.get(['domains','interceptionEnabled']);
@@ -31,7 +32,7 @@ function matchMask(url) {
 // 应用伪装
 async function applyMask(tabId, cfg) {
   try {
-    const title = resolveTitle(cfg);
+    const title = await resolveTitle(cfg);
     const favicon = await resolveFavicon(cfg);
     if (!title && !favicon) return;
     const [r] = await chrome.scripting.executeScript({
@@ -95,23 +96,29 @@ async function checkTab(tab) {
   if (!tab.id || !tab.url) return;
   const cfg = matchMask(tab.url);
   if (!cfg) return;
-
-  const [active] = await chrome.tabs.query({ active: true, currentWindow: true });
-  const isActive = active?.id === tab.id;
-  if (isActive) {
-    // 活跃标签不伪装，确保恢复
+  if (tab.active) {
     if (tabOriginals[tab.id]) restoreMask(tab.id);
   } else {
-    // 非活跃标签应用伪装
     if (!tabOriginals[tab.id]) applyMask(tab.id, cfg);
   }
 }
 
-// 标题自动补全：无标题时用伪装域名
-function resolveTitle(cfg) {
+// 标题：自定义优先 → 尝试获取目标页面真实标题 → 回退到域名
+async function resolveTitle(cfg) {
   if (cfg.title) return cfg.title;
-  if (cfg.domain) return cfg.domain;
-  return '';
+  if (!cfg.domain) return '';
+  if (titleCache[cfg.domain] !== undefined) return titleCache[cfg.domain];
+  try {
+    const resp = await fetch(`https://${cfg.domain}/`, { redirect: 'follow' });
+    const html = await resp.text();
+    const m = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+    const t = m ? m[1].trim() : cfg.domain;
+    titleCache[cfg.domain] = t;
+    return t;
+  } catch {
+    titleCache[cfg.domain] = cfg.domain;
+    return cfg.domain;
+  }
 }
 
 // 图标：根据域名获取 favicon data URL（绕过目标页面 CSP）
@@ -149,20 +156,17 @@ chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
   if (changeInfo.status === 'complete') checkTab(tab);
 });
 
-// tab 切换时恢复伪装
+// tab 切换时：恢复新活跃标签 + 伪装其他标签
 chrome.tabs.onActivated.addListener(async ({ tabId }) => {
   if (tabOriginals[tabId]) {
     const tab = await chrome.tabs.get(tabId);
     const cfg = matchMask(tab.url);
     if (cfg) restoreMask(tabId);
   }
-});
-
-// 其他 tab 可能也需要伪装
-chrome.tabs.onActivated.addListener(async () => {
+  // 其他标签可能需要伪装
   const tabs = await chrome.tabs.query({});
   for (const tab of tabs) {
-    if (tab.active) continue;
+    if (tab.active || !tab.id) continue;
     const cfg = matchMask(tab.url);
     if (cfg && !tabOriginals[tab.id]) applyMask(tab.id, cfg);
   }

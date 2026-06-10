@@ -8,7 +8,7 @@ const DOM = {
   add: $('addBtn'), remove: $('removeBtn'), settings: $('openSettings'),
   domainToggle: $('domainToggle'), domainToggleWrap: $('domainToggleWrap'),
 };
-let curDomain = '', curUrl = '', masterOn = true, curDomainInList = false;
+let curDomain = '', curUrl = '', masterOn = true;
 
 const getTab = async () => (await chrome.tabs.query({ active: true, currentWindow: true }))[0];
 const cfg = async () => (await chrome.storage.local.get('domains')).domains || [];
@@ -30,23 +30,19 @@ function updateUI(domains) {
     DOM.add.disabled=true; DOM.remove.disabled=false;
     DOM.dot.className='status-dot ' + (domains[i].enabled ? 'active' : 'in-list');
     DOM.text.textContent = domains[i].enabled ? '已在屏蔽列表中' : '在列表中（已暂停屏蔽）';
-    // 同步当前域名开关
-    curDomainInList = true;
     DOM.domainToggle.checked = domains[i].enabled;
     DOM.domainToggleWrap.style.display = (v === curDomain) ? 'inline-flex' : 'none';
   } else {
     DOM.add.disabled=false; DOM.remove.disabled=true;
     DOM.dot.className='status-dot'; DOM.text.textContent='可添加至屏蔽列表';
-    curDomainInList = false;
     DOM.domainToggleWrap.style.display='none';
   }
 }
 
-function setAll(v) {
-  const op = v ? '0.35' : '';
+function setDisabled(v) {
   [DOM.input, DOM.reset, DOM.add, DOM.remove].forEach(el => {
     el.disabled = v;
-    if (el !== DOM.input) { el.style.opacity = op; el.style.cursor = v ? 'not-allowed' : ''; }
+    if (el !== DOM.input) { el.style.opacity = v ? '0.35' : ''; el.style.cursor = v ? 'not-allowed' : ''; }
   });
 }
 
@@ -74,7 +70,7 @@ DOM.settings.onclick = e => { e.preventDefault(); chrome.runtime.openOptionsPage
 DOM.toggle.onchange = async () => {
   masterOn = DOM.toggle.checked;
   await chrome.storage.local.set({ interceptionEnabled: masterOn });
-  setAll(!masterOn);
+  setDisabled(!masterOn);
   DOM.dot.className='status-dot'; DOM.text.textContent = masterOn ? '' : '拦截已暂停';
   if (masterOn) refresh();
 };
@@ -94,7 +90,7 @@ DOM.domainToggle.onchange = async () => {
 chrome.storage.onChanged.addListener((c, a) => {
   if (a==='local' && c.interceptionEnabled) {
     masterOn = c.interceptionEnabled.newValue !== false;
-    DOM.toggle.checked = masterOn; setAll(!masterOn);
+    DOM.toggle.checked = masterOn; setDisabled(!masterOn);
     DOM.dot.className='status-dot'; DOM.text.textContent = masterOn ? '' : '拦截已暂停';
     if (masterOn) refresh();
   }
@@ -117,6 +113,6 @@ chrome.storage.onChanged.addListener((c, a) => {
       curDomain = (u.port && u.port!=='80' && u.port!=='443') ? `${u.hostname}:${u.port}` : u.hostname;
       DOM.input.value=curDomain; DOM.host.textContent=curDomain;
     }
-    if (!masterOn) { setAll(true); DOM.text.textContent='拦截已暂停'; } else { updateUI(await cfg()); }
+    if (!masterOn) { setDisabled(true); DOM.text.textContent='拦截已暂停'; } else { updateUI(await cfg()); }
   } catch { DOM.input.placeholder='加载失败'; }
 })();
