@@ -412,6 +412,7 @@ S.bEnable.onclick = () => batchSet(true);
 S.bDisable.onclick = () => batchSet(false);
 S.bDelete.onclick = () => del([...selected]);
 $('changelogBtn').onclick = openChangelog;
+$('refreshBtn').onclick = async () => { await load(); render(); };
 
 // ========== 初始化 ==========
 (async () => { await load(); render(); })();
