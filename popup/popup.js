@@ -1,5 +1,5 @@
 /**
- * 止痕 Trace Off v1.0.3 - Popup
+ * 止痕 Trace Off v1.0.4 - Popup
  */
 const $ = id => document.getElementById(id);
 const DOM = {

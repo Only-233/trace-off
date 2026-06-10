@@ -1,5 +1,5 @@
 /**
- * 止痕 Trace Off v1.0.3 - 设置页面
+ * 止痕 Trace Off v1.0.4 - 设置页面
  */
 const $ = id => document.getElementById(id);
 const S = {
@@ -34,6 +34,7 @@ const I = {
   check: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M3 8l3 4 7-8" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   trash: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 4h12M5.33 4V2.67a1.33 1.33 0 011.34-1.34h2.66a1.33 1.33 0 011.34 1.34V4M6.67 7.33v4M9.33 7.33v4" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><path d="M3.33 4l1.14 9.1a1.33 1.33 0 001.32 1.23h4.42a1.33 1.33 0 001.32-1.23L12.67 4" stroke="currentColor" stroke-width="1.4"/></svg>',
   history: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 2h12M5 2V1h6v1" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><rect x="3" y="5" width="10" height="9" rx="1" stroke="currentColor" stroke-width="1.4"/><line x1="6" y1="8" x2="10" y2="8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><line x1="6" y1="11" x2="9" y2="11" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
+  mask: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M2 5l3 3-3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><circle cx="10" cy="8" r="4" stroke="currentColor" stroke-width="1.5"/><path d="M10 6v4M8 8h4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
   favicon: u => `chrome://favicon/size/16@2x/${u}`,
   time: ts => { const d = new Date(ts), pad = n => String(n).padStart(2,'0'); const t = new Date(); t.setHours(0,0,0,0); const y = new Date(t); y.setDate(y.getDate()-1); const dp = d<y?`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`:d<t?'昨天':'今天'; return `${dp} ${pad(d.getHours())}:${pad(d.getMinutes())}`; },
   group: ts => { const d = new Date(ts); const t = new Date(); t.setHours(0,0,0,0); const y = new Date(t); y.setDate(y.getDate()-1); if(d>=t) return '今天'; if(d>=y) return '昨天'; return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; },
@@ -66,6 +67,7 @@ function render() {
       </div>
       <div class="action-btns-cell">
         <button class="btn-icon-only edit-btn" title="编辑">${I.edit}</button>
+        <button class="btn-icon-only mask-btn${d.maskTitle||d.maskDomain?' active':''}" title="伪装">${I.mask}</button>
         <button class="btn-icon-only history-btn" title="清空历史">${I.history}</button>
         <button class="btn-icon-only delete-btn" title="删除">${I.trash}</button>
       </div>
@@ -77,6 +79,7 @@ function render() {
     row.querySelector('.domain-edit-input').onclick = e => e.stopPropagation();
     row.querySelector('.history-btn').onclick = e => { e.stopPropagation(); openHistory(d.domain); };
     row.querySelector('.delete-btn').onclick = async e => { e.stopPropagation(); del([d.domain]); };
+    row.querySelector('.mask-btn').onclick = e => { e.stopPropagation(); openMask(d.domain); };
     S.domainList.appendChild(row);
   });
   S.count.innerHTML = `${I.dot} 共 ${domains.length} 个域名`;
@@ -192,6 +195,72 @@ async function del(arr) {
 }
 function clearSel() { selected.clear(); render(); }
 async function batchSet(v) { for (const d of selected) { const it = domains.find(x => x.domain === d); if (it) it.enabled = v; } await save(); render(); }
+
+// ========== 伪装弹窗 ==========
+function openMask(domain) {
+  const old = $('maskModal'); if (old) old.remove();
+  const obj = domains.find(d => d.domain === domain);
+  const el = document.createElement('div'); el.id = 'maskModal'; el.className = 'modal-overlay';
+  el.appendChild($('tplMaskModal').content.cloneNode(true));
+  document.body.appendChild(el);
+
+  const di = el.querySelector('#maskDomainInput'), ti = el.querySelector('#maskTitleInput');
+  el.querySelector('#maskDomainLabel').textContent = domain;
+  di.value = obj?.maskDomain || '';
+  ti.value = obj?.maskTitle || '';
+
+  el.onclick = e => { if(e.target===el) el.remove(); };
+  el.querySelector('.modal-close').onclick = () => el.remove();
+
+  el.querySelector('#maskClearBtn').onclick = async () => {
+    const d = domains.find(x => x.domain === domain);
+    if (d) { d.maskDomain = ''; d.maskTitle = ''; }
+    await save(); el.remove(); render();
+  };
+
+  el.querySelector('#maskSaveBtn').onclick = async () => {
+    const d = domains.find(x => x.domain === domain);
+    if (!d) return;
+    d.maskDomain = di.value.trim();
+    d.maskTitle = ti.value.trim();
+    await save(); el.remove(); render();
+  };
+
+  function updatePreview() {
+    const v = di.value.trim(), t = ti.value.trim();
+    const pi = el.querySelector('#maskPreviewIcon'), pt = el.querySelector('#maskPreviewTitle');
+    pi.onerror = pi.onload = null;
+    if (v) {
+      loadPreviewIcon(pi, v);
+    } else {
+      pi.removeAttribute('src');
+      pi.style.display = 'none';
+    }
+    pt.textContent = t || v || '未配置伪装';
+  }
+
+  function loadPreviewIcon(img, domain) {
+    const urls = [
+      `https://${domain}/favicon.ico`,
+      `https://www.google.com/s2/favicons?domain=${domain}&sz=64`,
+      `https://icons.duckduckgo.com/ip3/${domain}.ico`,
+    ];
+    let idx = 0;
+    img.onerror = () => {
+      if (++idx < urls.length) {
+        img.src = urls[idx];
+      } else {
+        img.style.display = 'none';
+      }
+    };
+    img.onload = () => { img.style.display = ''; };
+    img.src = urls[0];
+  }
+
+  di.oninput = updatePreview;
+  ti.oninput = updatePreview;
+  updatePreview();
+}
 
 // ========== 清空历史弹窗 ==========
 let hDomain = '', hResults = [], hSelected = new Set(), historyFilter = '';

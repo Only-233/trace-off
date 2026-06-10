@@ -139,7 +139,7 @@
             <div class="about-card">
               <div class="about-logo"><img src="../icons/icon-about.svg" width="64" height="64" alt="止痕"></div>
               <h3>止痕 Trace Off</h3>
-              <p class="version">版本 1.0.3</p>
+              <p class="version">版本 1.0.4</p>
               <p class="about-desc">一款轻量级浏览器扩展，让你可以按域名禁止浏览器保存历史记录。</p>
               <button class="btn btn-sm btn-outline changelog-btn" id="changelogBtn">
                 <img src="../icons/icon-info.svg" width="14" height="14" alt="日志">
@@ -188,6 +188,12 @@
     <div class="modal-card" style="max-width:500px">
       <div class="modal-header"><div><h3><img src="../icons/icon-info-lg.svg" width="18" height="18" alt="日志">更新日志</h3></div><button class="modal-close" id="clClose">&times;</button></div>
       <div class="modal-body" style="padding:20px 24px;max-height:60vh;overflow-y:auto">
+        <div class="cl-ver"><strong>v1.0.4</strong> <span style="color:var(--text-muted);font-size:12px">2026-06-10</span></div>
+        <ul class="cl-list">
+          <li>新增标签页伪装功能：域名行可设置伪装域名和标题，后台标签自动变更标题和图标</li>
+          <li>伪装弹窗支持实时预览图标和标题；输入域名即可自动获取对应网站图标</li>
+          <li>切换标签页时自动恢复/应用伪装，不影响当前活跃标签页</li>
+        </ul>
         <div class="cl-ver"><strong>v1.0.3</strong> <span style="color:var(--text-muted);font-size:12px">2026-06-10</span></div>
         <ul class="cl-list">
           <li>域名管理新增搜索框，按域名快速筛选；历史弹窗新增搜索，按域名/标题筛选</li>
@@ -219,6 +225,36 @@
           <li>批量全选 / 启用 / 禁用 / 删除</li>
           <li>Manifest V3，本地存储，隐私安全</li>
         </ul>
+      </div>
+    </div>
+  </template>
+
+  <template id="tplMaskModal">
+    <div class="modal-card mask-modal-card">
+      <div class="modal-header mask-modal-header">
+        <h3 class="mask-modal-title">🎭 伪装设置 — <span id="maskDomainLabel"></span></h3>
+        <button class="modal-close">&times;</button>
+      </div>
+      <div class="modal-body mask-modal-body">
+        <div class="mask-preview-area">
+          <img id="maskPreviewIcon" src="" class="mask-preview-img" alt="">
+          <span class="mask-preview-text" id="maskPreviewTitle"></span>
+        </div>
+        <div class="mask-field">
+          <label class="mask-label">伪装域名</label>
+          <input type="text" id="maskDomainInput" class="input" placeholder="输入域名，如 bing.com" spellcheck="false" autocomplete="off">
+        </div>
+        <div class="mask-field">
+          <label class="mask-label">
+            伪装标题
+            <span class="mask-label-sub">留空则使用伪装域名</span>
+          </label>
+          <input type="text" id="maskTitleInput" class="input" placeholder="留空则自动使用伪装域名" spellcheck="false" autocomplete="off">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" id="maskClearBtn">清除伪装</button>
+        <button class="btn btn-primary" id="maskSaveBtn">保存</button>
       </div>
     </div>
   </template>

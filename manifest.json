@@ -1,14 +1,15 @@
 {
   "manifest_version": 3,
   "name": "止痕 Trace Off",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "按域名禁止浏览器保存历史记录",
   "icons": {
     "16": "icons/icon16.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "permissions": ["history", "storage", "tabs", "activeTab"],
+  "permissions": ["history", "storage", "tabs", "activeTab", "scripting"],
+  "host_permissions": ["<all_urls>"],
   "web_accessible_resources": [{
     "resources": ["icons/*"],
     "matches": ["<all_urls>"]

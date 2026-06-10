@@ -2,7 +2,7 @@
 
 > 轻量级浏览器扩展，按域名禁止浏览器保存历史记录。
 
-[![Version](https://img.shields.io/badge/version-1.0.3-blue)](https://github.com/Only-233/trace-off)
+[![Version](https://img.shields.io/badge/version-1.0.4-blue)](https://github.com/Only-233/trace-off)
 
 ---
 
